@@ -1,0 +1,1219 @@
+常用第三方模块
+
+除了内建的模块外，Python还有大量的第三方模块。
+
+基本上，所有的第三方模块都会在PyPI - the Python Package Index上注册，
+只要找到对应的模块名字，即可用pip安装。
+此外，在安装第三方模块一节中，我们强烈推荐安装Anaconda，
+安装后，数十个常用的第三方模块就已经就绪，不用pip手动安装。
+
+Pillow
+PIL：Python Imaging Library，已经是Python平台事实上的图像处理标准库了。
+PIL功能非常强大，但API却非常简单易用。
+
+由于PIL仅支持到Python 2.7，加上年久失修，于是一群志愿者在PIL的基础上创建了兼容的版本，名字叫Pillow，
+支持最新Python 3.x，又加入了许多新特性，因此，我们可以直接安装使用Pillow。
+
+安装Pillow
+
+如果安装了Anaconda，Pillow就已经可用了。否则，需要在命令行下通过pip安装：
+
+$ pip install pillow
+如果遇到Permission denied安装失败，请加上sudo重试。
+
+操作图像
+
+来看看最常见的图像缩放操作，只需三四行代码：
+
+from PIL import Image
+
+# 打开一个jpg图像文件，注意是当前路径:
+im = Image.open('test.jpg')
+# 获得图像尺寸:
+w, h = im.size
+print('Original image size: %sx%s' % (w, h))
+# 缩放到50%:
+im.thumbnail((w//2, h//2))
+print('Resize image to: %sx%s' % (w//2, h//2))
+# 把缩放后的图像用jpeg格式保存:
+im.save('thumbnail.jpg', 'jpeg')
+其他功能如切片、旋转、滤镜、输出文字、调色板等一应俱全。
+
+比如，模糊效果也只需几行代码：
+
+from PIL import Image, ImageFilter
+
+# 打开一个jpg图像文件，注意是当前路径:
+im = Image.open('test.jpg')
+# 应用模糊滤镜:
+im2 = im.filter(ImageFilter.BLUR)
+im2.save('blur.jpg', 'jpeg')
+
+PIL的ImageDraw提供了一系列绘图方法，让我们可以直接绘图。比如要生成字母验证码图片：
+
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+import random
+
+# 随机字母:
+def rndChar():
+    return chr(random.randint(65, 90))
+
+# 随机颜色1:
+def rndColor():
+    return (random.randint(64, 255), random.randint(64, 255), random.randint(64, 255))
+
+# 随机颜色2:
+def rndColor2():
+    return (random.randint(32, 127), random.randint(32, 127), random.randint(32, 127))
+
+# 240 x 60:
+width = 60 * 4
+height = 60
+image = Image.new('RGB', (width, height), (255, 255, 255))
+# 创建Font对象:
+font = ImageFont.truetype('Arial.ttf', 36)
+# 创建Draw对象:
+draw = ImageDraw.Draw(image)
+# 填充每个像素:
+for x in range(width):
+    for y in range(height):
+        draw.point((x, y), fill=rndColor())
+# 输出文字:
+for t in range(4):
+    draw.text((60 * t + 10, 10), rndChar(), font=font, fill=rndColor2())
+# 模糊:
+image = image.filter(ImageFilter.BLUR)
+image.save('code.jpg', 'jpeg')
+我们用随机颜色填充背景，再画上文字，最后对图像进行模糊
+
+如果运行的时候报错：
+
+IOError: cannot open resource
+这是因为PIL无法定位到字体文件的位置，可以根据操作系统提供绝对路径，比如：
+
+'/Library/Fonts/Arial.ttf'
+要详细了解PIL的强大功能，请请参考Pillow官方文档：
+
+https://pillow.readthedocs.org/
+
+
+requests
+我们已经讲解了Python内置的urllib模块，用于访问网络资源。
+但是，它用起来比较麻烦，而且，缺少很多实用的高级功能。
+更好的方案是使用requests。它是一个Python第三方库，处理URL资源特别方便。
+
+安装requests
+
+如果安装了Anaconda，requests就已经可用了。否则，需要在命令行下通过pip安装：
+
+$ pip install requests
+如果遇到Permission denied安装失败，请加上sudo重试。
+
+使用requests
+
+要通过GET访问一个页面，只需要几行代码：
+
+>>> import requests
+>>> r = requests.get('https://www.douban.com/') # 豆瓣首页
+>>> r.status_code
+200
+>>> r.text
+r.text
+对于带参数的URL，传入一个dict作为params参数：
+
+>>> r = requests.get('https://www.douban.com/search', params={'q': 'python', 'cat': '1001'})
+>>> r.url # 实际请求的URL
+'https://www.douban.com/search?q=python&cat=1001'
+requests自动检测编码，可以使用encoding属性查看：
+
+>>> r.encoding
+'utf-8'
+
+无论响应是文本还是二进制内容，我们都可以用content属性获得bytes对象：
+
+>>> r.content
+b'<!DOCTYPE html>\n<html>\n<head>\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n...'
+requests的方便之处还在于，对于特定类型的响应，例如JSON，可以直接获取：
+
+>>> r = requests.get('https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20weather.forecast%20where%20woeid%20%3D%202151330&format=json')
+>>> r.json()
+{'query': {'count': 1, 'created': '2017-11-17T07:14:12Z', ...
+
+需要传入HTTP Header时，我们传入一个dict作为headers参数：
+headers={'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit'}
+r = requests.get('https://www.douban.com/', headers=headers)
+要发送POST请求，只需要把get()方法变成post()，然后传入data参数作为POST请求的数据：
+
+>>> r = requests.post('https://accounts.douban.com/login', data={'form_email': 'abc@example.com', 'form_password': '123456'})
+requests默认使用application/x-www-form-urlencoded对POST数据编码。如果要传递JSON数据，可以直接传入json参数：
+
+params = {'key': 'value'}
+r = requests.post(url, json=params) # 内部自动序列化为JSON
+
+类似的，上传文件需要更复杂的编码格式，但是requests把它简化成files参数：
+
+>>> upload_files = {'file': open('report.xls', 'rb')}
+>>> r = requests.post(url, files=upload_files)
+
+在读取文件时，注意务必使用'rb'即二进制模式读取，这样获取的bytes长度才是文件的长度。
+
+把post()方法替换为put()，delete()等，就可以以PUT或DELETE方式请求资源。
+
+除了能轻松获取响应内容外，requests对获取HTTP响应的其他信息也非常简单。例如，获取响应头：
+
+>>> r.headers
+{Content-Type': 'text/html; charset=utf-8', 'Transfer-Encoding': 'chunked', 'Content-Encoding': 'gzip', ...}
+>>> r.headers['Content-Type']
+'text/html; charset=utf-8'
+
+requests对Cookie做了特殊处理，使得我们不必解析Cookie就可以轻松获取指定的Cookie：
+
+>>> r.cookies['ts']
+'example_cookie_12345'
+要在请求中传入Cookie，只需准备一个dict传入cookies参数：
+
+>>> cs = {'token': '12345', 'status': 'working')
+>>> r = requests.get(url, cookies=cs)
+最后，要指定超时，传入以秒为单位的timeout参数：
+
+>>> r = requests.get(url, timeout=2.5) # 2.5秒后超时
+
+
+chardet
+字符串编码一直是令人非常头疼的问题，尤其是我们在处理一些不规范的第三方网页的时候。
+虽然Python提供了Unicode表示的str和bytes两种数据类型，并且可以通过encode()和decode()方法转换，
+但是，在不知道编码的情况下，对bytes做decode()不好做。
+对于未知编码的bytes，要把它转换成str，需要先“猜测”编码。
+猜测的方式是先收集各种编码的特征字符，根据特征字符判断，就能有很大概率“猜对”。
+当然，我们肯定不能从头自己写这个检测编码的功能，这样做费时费力。
+chardet这个第三方库正好就派上了用场。用它来检测编码，简单易用。
+
+使用chardet
+
+当我们拿到一个bytes时，就可以对其检测编码。用chardet检测编码，只需要一行代码：
+
+>>> chardet.detect(b'Hello, world!')
+{'encoding': 'ascii', 'confidence': 1.0, 'language': ''}
+检测出的编码是ascii，注意到还有个confidence字段，表示检测的概率是1.0（即100%）。
+
+我们来试试检测GBK编码的中文：
+
+>>> data = '离离原上草，一岁一枯荣'.encode('gbk')
+>>> chardet.detect(data)
+{'encoding': 'GB2312', 'confidence': 0.7407407407407407, 'language': 'Chinese'}
+检测的编码是GB2312，注意到GBK是GB2312的超集，两者是同一种编码，检测正确的概率是74%，language字段指出的语言是'Chinese'。
+
+对UTF-8编码进行检测：
+
+>>> data = '离离原上草，一岁一枯荣'.encode('utf-8')
+>>> chardet.detect(data)
+{'encoding': 'utf-8', 'confidence': 0.99, 'language': ''}
+我们再试试对日文进行检测：
+
+>>> data = '最新の主要ニュース'.encode('euc-jp')
+>>> chardet.detect(data)
+{'encoding': 'EUC-JP', 'confidence': 0.99, 'language': 'Japanese'}
+可见，用chardet检测编码，使用简单。获取到编码后，再转换为str，就可以方便后续处理。
+
+chardet支持检测的编码列表请参考官方文档Supported encodings。
+
+
+psutil
+用Python来编写脚本简化日常的运维工作是Python的一个重要用途。
+在Linux下，有许多系统命令可以让我们时刻监控系统运行的状态，如ps，top，free等等。
+要获取这些系统信息，Python可以通过subprocess模块调用并获取结果。但这样做显得很麻烦，尤其是要写很多解析代码。
+在Python中获取系统信息的另一个好办法是使用psutil这个第三方模块。
+顾名思义，psutil = process and system utilities，
+它不仅可以通过一两行代码实现系统监控，还可以跨平台使用，支持Linux／UNIX／OSX／Windows等，
+是系统管理员和运维小伙伴不可或缺的必备模块。
+
+获取CPU信息
+
+我们先来获取CPU的信息：
+
+>>> import psutil
+>>> psutil.cpu_count() # CPU逻辑数量
+4
+>>> psutil.cpu_count(logical=False) # CPU物理核心
+2
+# 2说明是双核超线程, 4则是4核非超线程
+统计CPU的用户／系统／空闲时间：
+
+>>> psutil.cpu_times()
+scputimes(user=10963.31, nice=0.0, system=5138.67, idle=356102.45)
+再实现类似top命令的CPU使用率，每秒刷新一次，累计10次：
+
+>>> for x in range(10):
+...     psutil.cpu_percent(interval=1, percpu=True)
+... 
+[14.0, 4.0, 4.0, 4.0]
+[12.0, 3.0, 4.0, 3.0]
+[8.0, 4.0, 3.0, 4.0]
+[12.0, 3.0, 3.0, 3.0]
+[18.8, 5.1, 5.9, 5.0]
+[10.9, 5.0, 4.0, 3.0]
+[12.0, 5.0, 4.0, 5.0]
+[15.0, 5.0, 4.0, 4.0]
+[19.0, 5.0, 5.0, 4.0]
+[9.0, 3.0, 2.0, 3.0]
+
+获取内存信息
+
+使用psutil获取物理内存和交换内存信息，分别使用：
+
+>>> psutil.virtual_memory()
+svmem(total=8589934592, available=2866520064, percent=66.6, used=7201386496, free=216178688, active=3342192640, inactive=2650341376, wired=1208852480)
+>>> psutil.swap_memory()
+sswap(total=1073741824, used=150732800, free=923009024, percent=14.0, sin=10705981440, sout=40353792)
+返回的是字节为单位的整数，可以看到，总内存大小是8589934592 = 8 GB，已用7201386496 = 6.7 GB，使用了66.6%。
+
+而交换区大小是1073741824 = 1 GB。
+
+获取磁盘信息
+
+可以通过psutil获取磁盘分区、磁盘使用率和磁盘IO信息：
+
+>>> psutil.disk_partitions() # 磁盘分区信息
+[sdiskpart(device='/dev/disk1', mountpoint='/', fstype='hfs', opts='rw,local,rootfs,dovolfs,journaled,multilabel')]
+>>> psutil.disk_usage('/') # 磁盘使用情况
+sdiskusage(total=998982549504, used=390880133120, free=607840272384, percent=39.1)
+>>> psutil.disk_io_counters() # 磁盘IO
+sdiskio(read_count=988513, write_count=274457, read_bytes=14856830464, write_bytes=17509420032, read_time=2228966, write_time=1618405)
+可以看到，磁盘'/'的总容量是998982549504 = 930 GB，使用了39.1%。文件格式是HFS，opts中包含rw表示可读写，journaled表示支持日志。
+
+获取网络信息
+
+psutil可以获取网络接口和网络连接信息：
+
+>>> psutil.net_io_counters() # 获取网络读写字节／包的个数
+snetio(bytes_sent=3885744870, bytes_recv=10357676702, packets_sent=10613069, packets_recv=10423357, errin=0, errout=0, dropin=0, dropout=0)
+>>> psutil.net_if_addrs() # 获取网络接口信息
+{
+  'lo0': [snic(family=<AddressFamily.AF_INET: 2>, address='127.0.0.1', netmask='255.0.0.0'), ...],
+  'en1': [snic(family=<AddressFamily.AF_INET: 2>, address='10.0.1.80', netmask='255.255.255.0'), ...],
+  'en0': [...],
+  'en2': [...],
+  'bridge0': [...]
+}
+>>> psutil.net_if_stats() # 获取网络接口状态
+{
+  'lo0': snicstats(isup=True, duplex=<NicDuplex.NIC_DUPLEX_UNKNOWN: 0>, speed=0, mtu=16384),
+  'en0': snicstats(isup=True, duplex=<NicDuplex.NIC_DUPLEX_UNKNOWN: 0>, speed=0, mtu=1500),
+  'en1': snicstats(...),
+  'en2': snicstats(...),
+  'bridge0': snicstats(...)
+}
+要获取当前网络连接信息，使用net_connections()：
+
+>>> psutil.net_connections()
+Traceback (most recent call last):
+  ...
+PermissionError: [Errno 1] Operation not permitted
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  ...
+psutil.AccessDenied: psutil.AccessDenied (pid=3847)
+你可能会得到一个AccessDenied错误，原因是psutil获取信息也是要走系统接口，而获取网络连接信息需要root权限，这种情况下，可以退出Python交互环境，用sudo重新启动：
+
+$ sudo python3
+Password: ******
+Python 3.6.3 ... on darwin
+Type "help", ... for more information.
+>>> import psutil
+>>> psutil.net_connections()
+[
+    sconn(fd=83, family=<AddressFamily.AF_INET6: 30>, type=1, laddr=addr(ip='::127.0.0.1', port=62911), raddr=addr(ip='::127.0.0.1', port=3306), status='ESTABLISHED', pid=3725),
+    sconn(fd=84, family=<AddressFamily.AF_INET6: 30>, type=1, laddr=addr(ip='::127.0.0.1', port=62905), raddr=addr(ip='::127.0.0.1', port=3306), status='ESTABLISHED', pid=3725),
+    sconn(fd=93, family=<AddressFamily.AF_INET6: 30>, type=1, laddr=addr(ip='::', port=8080), raddr=(), status='LISTEN', pid=3725),
+    sconn(fd=103, family=<AddressFamily.AF_INET6: 30>, type=1, laddr=addr(ip='::127.0.0.1', port=62918), raddr=addr(ip='::127.0.0.1', port=3306), status='ESTABLISHED', pid=3725),
+    sconn(fd=105, family=<AddressFamily.AF_INET6: 30>, type=1, ..., pid=3725),
+    sconn(fd=106, family=<AddressFamily.AF_INET6: 30>, type=1, ..., pid=3725),
+    sconn(fd=107, family=<AddressFamily.AF_INET6: 30>, type=1, ..., pid=3725),
+    ...
+    sconn(fd=27, family=<AddressFamily.AF_INET: 2>, type=2, ..., pid=1)
+]
+
+获取进程信息
+获取进程信息
+
+通过psutil可以获取到所有进程的详细信息：
+
+>>> psutil.pids() # 所有进程ID
+[3865, 3864, 3863, 3856, 3855, 3853, 3776, ..., 45, 44, 1, 0]
+>>> p = psutil.Process(3776) # 获取指定进程ID=3776，其实就是当前Python交互环境
+>>> p.name() # 进程名称
+'python3.6'
+>>> p.exe() # 进程exe路径
+'/Users/michael/anaconda3/bin/python3.6'
+>>> p.cwd() # 进程工作目录
+'/Users/michael'
+>>> p.cmdline() # 进程启动的命令行
+['python3']
+>>> p.ppid() # 父进程ID
+3765
+>>> p.parent() # 父进程
+<psutil.Process(pid=3765, name='bash') at 4503144040>
+>>> p.children() # 子进程列表
+[]
+>>> p.status() # 进程状态
+'running'
+>>> p.username() # 进程用户名
+'michael'
+>>> p.create_time() # 进程创建时间
+1511052731.120333
+>>> p.terminal() # 进程终端
+'/dev/ttys002'
+>>> p.cpu_times() # 进程使用的CPU时间
+pcputimes(user=0.081150144, system=0.053269812, children_user=0.0, children_system=0.0)
+>>> p.memory_info() # 进程使用的内存
+pmem(rss=8310784, vms=2481725440, pfaults=3207, pageins=18)
+>>> p.open_files() # 进程打开的文件
+[]
+>>> p.connections() # 进程相关网络连接
+[]
+>>> p.num_threads() # 进程的线程数量
+1
+>>> p.threads() # 所有线程信息
+[pthread(id=1, user_time=0.090318, system_time=0.062736)]
+>>> p.environ() # 进程环境变量
+{'SHELL': '/bin/bash', 'PATH': '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:...', 'PWD': '/Users/michael', 'LANG': 'zh_CN.UTF-8', ...}
+>>> p.terminate() # 结束进程
+Terminated: 15 <-- 自己把自己结束了
+和获取网络连接类似，获取一个root用户的进程需要root权限，启动Python交互环境或者.py文件时，需要sudo权限。
+
+psutil还提供了一个test()函数，可以模拟出ps命令的效果：
+
+$ sudo python3
+Password: ******
+Python 3.6.3 ... on darwin
+Type "help", ... for more information.
+>>> import psutil
+>>> psutil.test()
+USER         PID %MEM     VSZ     RSS TTY           START    TIME  COMMAND
+root           0 24.0 74270628 2016380 ?             Nov18   40:51  kernel_task
+root           1  0.1 2494140    9484 ?             Nov18   01:39  launchd
+root          44  0.4 2519872   36404 ?             Nov18   02:02  UserEventAgent
+root          45    ? 2474032    1516 ?             Nov18   00:14  syslogd
+root          47  0.1 2504768    8912 ?             Nov18   00:03  kextd
+root          48  0.1 2505544    4720 ?             Nov18   00:19  fseventsd
+_appleeven    52  0.1 2499748    5024 ?             Nov18   00:00  appleeventsd
+root          53  0.1 2500592    6132 ?             Nov18   00:02  configd
+...
+小结
+
+psutil使得Python程序获取系统信息变得易如反掌。
+
+psutil还可以获取用户信息、Windows服务等很多有用的系统信息，
+具体请参考psutil的官网：https://github.com/giampaolo/psutil
+
+
+virtualenv   虚拟环境
+
+图形界面
+
+Python支持多种图形界面的第三方库，包括：
+
+Tk
+
+wxWidgets
+
+Qt
+
+GTK
+
+等等。
+
+但是Python自带的库是支持Tk的Tkinter，使用Tkinter，无需安装任何包，就可以直接使用。
+本章简单介绍如何使用Tkinter进行GUI编程。
+
+Tkinter
+
+我们来梳理一下概念：
+
+我们编写的Python代码会调用内置的Tkinter，Tkinter封装了访问Tk的接口；
+
+Tk是一个图形库，支持多个操作系统，使用Tcl语言开发；
+
+Tk会调用操作系统提供的本地GUI接口，完成最终的GUI。
+
+所以，我们的代码只需要调用Tkinter提供的接口就可以了。
+
+第一个GUI程序
+
+使用Tkinter十分简单，我们来编写一个GUI版本的“Hello, world!”。
+
+第一步是导入Tkinter包的所有内容：
+
+from tkinter import *
+第二步是从Frame派生一个Application类，这是所有Widget的父容器：
+
+class Application(Frame):
+    def __init__(self, master=None):
+        Frame.__init__(self, master)
+        self.pack()
+        self.createWidgets()
+
+    def createWidgets(self):
+        self.helloLabel = Label(self, text='Hello, world!')
+        self.helloLabel.pack()
+        self.quitButton = Button(self, text='Quit', command=self.quit)
+        self.quitButton.pack()
+在GUI中，每个Button、Label、输入框等，都是一个Widget。
+Frame则是可以容纳其他Widget的Widget，所有的Widget组合起来就是一棵树。
+
+pack()方法把Widget加入到父容器中，并实现布局。pack()是最简单的布局，grid()可以实现更复杂的布局。
+
+在createWidgets()方法中，我们创建一个Label和一个Button，当Button被点击时，触发self.quit()使程序退出。
+
+第三步，实例化Application，并启动消息循环：
+
+app = Application()
+# 设置窗口标题:
+app.master.title('Hello World')
+# 主消息循环:
+app.mainloop()
+GUI程序的主线程负责监听来自操作系统的消息，并依次处理每一条消息。
+因此，如果消息处理非常耗时，就需要在新线程中处理。
+
+运行这个GUI程序，可以看到下面的窗口：
+
+tk-hello-world
+
+点击“Quit”按钮或者窗口的“x”结束程序。
+
+输入文本
+
+我们再对这个GUI程序改进一下，加入一个文本框，让用户可以输入文本，然后点按钮后，弹出消息对话框。
+
+from tkinter import *
+import tkinter.messagebox as messagebox
+
+class Application(Frame):
+    def __init__(self, master=None):
+        Frame.__init__(self, master)
+        self.pack()
+        self.createWidgets()
+
+    def createWidgets(self):
+        self.nameInput = Entry(self)
+        self.nameInput.pack()
+        self.alertButton = Button(self, text='Hello', command=self.hello)
+        self.alertButton.pack()
+
+    def hello(self):
+        name = self.nameInput.get() or 'world'
+        messagebox.showinfo('Message', 'Hello, %s' % name)
+
+app = Application()
+# 设置窗口标题:
+app.master.title('Hello World')
+# 主消息循环:
+app.mainloop()
+当用户点击按钮时，触发hello()，通过self.nameInput.get()获得用户输入的文本后，使用tkMessageBox.showinfo()可以弹出消息对话框。
+
+程序运行结果如下：
+
+tk-say-hello
+
+小结
+
+Python内置的Tkinter可以满足基本的GUI程序的要求，如果是非常复杂的GUI程序，建议用操作系统原生支持的语言和库来编写。
+
+
+TCP编程
+Socket是网络编程的一个抽象概念。
+通常我们用一个Socket表示“打开了一个网络链接”，
+而打开一个Socket需要知道目标计算机的IP地址和端口号，再指定协议类型即可。
+
+客户端
+所以，我们要创建一个基于TCP连接的Socket，可以这样做：
+
+# 导入socket库:
+import socket
+
+# 创建一个socket:
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# 建立连接:
+s.connect(('www.sina.com.cn', 80))
+创建Socket时，AF_INET指定使用IPv4协议，如果要用更先进的IPv6，就指定为AF_INET6。
+SOCK_STREAM指定使用面向流的TCP协议，这样，一个Socket对象就创建成功，但是还没有建立连接。
+我们连接新浪服务器的代码如下：
+s.connect(('www.sina.com.cn', 80))
+注意参数是一个tuple，包含地址和端口号。
+建立TCP连接后，我们就可以向新浪服务器发送请求，要求返回首页的内容：
+
+# 发送数据:
+s.send(b'GET / HTTP/1.1\r\nHost: www.sina.com.cn\r\nConnection: close\r\n\r\n')
+TCP连接创建的是双向通道，双方都可以同时给对方发数据。
+但是谁先发谁后发，怎么协调，要根据具体的协议来决定。
+例如，HTTP协议规定客户端必须先发请求给服务器，服务器收到后才发数据给客户端。
+发送的文本格式必须符合HTTP标准，如果格式没问题，接下来就可以接收新浪服务器返回的数据了：
+
+# 接收数据:
+buffer = []
+while True:
+    # 每次最多接收1k字节:
+    d = s.recv(1024)
+    if d:
+        buffer.append(d)
+    else:
+        break
+data = b''.join(buffer)
+接收数据时，调用recv(max)方法，一次最多接收指定的字节数，
+因此，在一个while循环中反复接收，直到recv()返回空数据，表示接收完毕，退出循环。
+当我们接收完数据后，调用close()方法关闭Socket，这样，一次完整的网络通信就结束了：
+
+# 关闭连接:
+s.close()
+接收到的数据包括HTTP头和网页本身，我们只需要把HTTP头和网页分离一下，把HTTP头打印出来，网页内容保存到文件：
+
+header, html = data.split(b'\r\n\r\n', 1)
+print(header.decode('utf-8'))
+# 把接收的数据写入文件:
+with open('sina.html', 'wb') as f:
+    f.write(html)
+现在，只需要在浏览器中打开这个sina.html文件，就可以看到新浪的首页了。
+
+服务器
+
+服务器会打开固定端口（比如80）监听，每来一个客户端连接，就创建该Socket连接。
+由于服务器会有大量来自客户端的连接，所以，服务器要能够区分一个Socket连接是和哪个客户端绑定的。
+一个Socket依赖4项：服务器地址、服务器端口、客户端地址、客户端端口来唯一确定一个Socket。
+但是服务器还需要同时响应多个客户端的请求，
+所以，每个连接都需要一个新的进程或者新的线程来处理，否则，服务器一次就只能服务一个客户端了。
+我们来编写一个简单的服务器程序，它接收客户端连接，把客户端发过来的字符串加上Hello再发回去。
+首先，创建一个基于IPv4和TCP协议的Socket：
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+然后，我们要绑定监听的地址和端口。
+服务器可能有多块网卡，可以绑定到某一块网卡的IP地址上，
+也可以用0.0.0.0绑定到所有的网络地址，还可以用127.0.0.1绑定到本机地址。
+127.0.0.1是一个特殊的IP地址，表示本机地址，如果绑定到这个地址，客户端必须同时在本机运行才能连接，
+也就是说，外部的计算机无法连接进来。
+端口号需要预先指定。因为我们写的这个服务不是标准服务，所以用9999这个端口号。
+请注意，小于1024的端口号必须要有管理员权限才能绑定：
+
+# 监听端口:
+s.bind(('127.0.0.1', 9999))
+紧接着，调用listen()方法开始监听端口，传入的参数指定等待连接的最大数量：
+
+s.listen(5)
+print('Waiting for connection...')
+
+接下来，服务器程序通过一个永久循环来接受来自客户端的连接，accept()会等待并返回一个客户端的连接:
+
+while True:
+    # 接受一个新连接:
+    sock, addr = s.accept()
+    # 创建新线程来处理TCP连接:
+    t = threading.Thread(target=tcplink, args=(sock, addr))
+    t.start()
+每个连接都必须创建新线程（或进程）来处理，否则，单线程在处理连接的过程中，无法接受其他客户端的连接：
+
+def tcplink(sock, addr):
+    print('Accept new connection from %s:%s...' % addr)
+    sock.send(b'Welcome!')
+    while True:
+        data = sock.recv(1024)
+        time.sleep(1)
+        if not data or data.decode('utf-8') == 'exit':
+            break
+        sock.send(('Hello, %s!' % data.decode('utf-8')).encode('utf-8'))
+    sock.close()
+    print('Connection from %s:%s closed.' % addr)
+	
+连接建立后，服务器首先发一条欢迎消息，然后等待客户端数据，并加上Hello再发送给客户端。
+如果客户端发送了exit字符串，就直接关闭连接。
+要测试这个服务器程序，我们还需要编写一个客户端程序：
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# 建立连接:
+s.connect(('127.0.0.1', 9999))
+# 接收欢迎消息:
+print(s.recv(1024).decode('utf-8'))
+for data in [b'Michael', b'Tracy', b'Sarah']:
+    # 发送数据:
+    s.send(data)
+    print(s.recv(1024).decode('utf-8'))
+s.send(b'exit')
+s.close()
+我们需要打开两个命令行窗口，一个运行服务器程序，另一个运行客户端程序，就可以看到效果了：
+需要注意的是，客户端程序运行完毕就退出了，而服务器程序会永远运行下去，必须按Ctrl+C退出程序。
+
+小结
+
+用TCP协议进行Socket编程在Python中十分简单，对于客户端，要主动连接服务器的IP和指定端口，
+对于服务器，要首先监听指定端口，然后，对每一个新的连接，创建一个线程或进程来处理。
+通常，服务器程序会无限运行下去。
+同一个端口，被一个Socket绑定了以后，就不能被别的Socket绑定了。
+
+UDP编程
+
+TCP是建立可靠连接，并且通信双方都可以以流的形式发送数据。相对TCP，UDP则是面向无连接的协议。
+
+使用UDP协议时，不需要建立连接，只需要知道对方的IP地址和端口号，就可以直接发数据包。
+但是，能不能到达就不知道了。
+虽然用UDP传输数据不可靠，但它的优点是和TCP比，速度快，对于不要求可靠到达的数据，就可以使用UDP协议。
+我们来看看如何通过UDP协议传输数据。
+和TCP类似，使用UDP的通信双方也分为客户端和服务器。服务器首先需要绑定端口：
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# 绑定端口:
+s.bind(('127.0.0.1', 9999))
+创建Socket时，SOCK_DGRAM指定了这个Socket的类型是UDP。
+绑定端口和TCP一样，但是不需要调用listen()方法，而是直接接收来自任何客户端的数据：
+
+print('Bind UDP on 9999...')
+while True:
+    # 接收数据:
+    data, addr = s.recvfrom(1024)
+    print('Received from %s:%s.' % addr)
+    s.sendto(b'Hello, %s!' % data, addr)
+recvfrom()方法返回数据和客户端的地址与端口，
+这样，服务器收到数据后，直接调用sendto()就可以把数据用UDP发给客户端。
+
+注意这里省掉了多线程，因为这个例子很简单。
+
+客户端使用UDP时，首先仍然创建基于UDP的Socket，然后，不需要调用connect()，直接通过sendto()给服务器发数据：
+
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+for data in [b'Michael', b'Tracy', b'Sarah']:
+    # 发送数据:
+    s.sendto(data, ('127.0.0.1', 9999))
+    # 接收数据:
+    print(s.recv(1024).decode('utf-8'))
+s.close()
+从服务器接收数据仍然调用recv()方法。
+小结
+
+UDP的使用与TCP类似，但是不需要建立连接。
+此外，服务器绑定UDP端口和TCP端口互不冲突，也就是说，UDP的9999端口与TCP的9999端口可以各自绑定。
+
+
+电子邮件
+SMTP发送邮件
+SMTP是发送邮件的协议，Python内置对SMTP的支持，可以发送纯文本邮件、HTML邮件以及带附件的邮件。
+Python对SMTP支持有smtplib和email两个模块，email负责构造邮件，smtplib负责发送邮件
+首先，我们来构造一个最简单的纯文本邮件：
+
+from email.mime.text import MIMEText
+msg = MIMEText('hello, send by Python...', 'plain', 'utf-8')
+注意到构造MIMEText对象时，第一个参数就是邮件正文，第二个参数是MIME的subtype，传入'plain'表示纯文本，
+最终的MIME就是'text/plain'，最后一定要用utf-8编码保证多语言兼容性。
+
+用set_debuglevel(1)就可以打印出和SMTP服务器交互的所有信息。
+SMTP协议就是简单的文本命令和响应。
+login()方法用来登录SMTP服务器，sendmail()方法就是发邮件，由于可以一次发给多个人，所以传入一个list，
+邮件正文是一个str，as_string()把MIMEText对象变成str。
+
+邮件主题、如何显示发件人、收件人等信息并不是通过SMTP协议发给MTA，而是包含在发给MTA的文本中的，
+所以，我们必须把From、To和Subject添加到MIMEText中，才是一封完整的邮件：
+from email import encoders
+from email.header import Header
+from email.mime.text import MIMEText
+from email.utils import parseaddr, formataddr
+
+import smtplib
+
+def _format_addr(s):
+    name, addr = parseaddr(s)
+    return formataddr((Header(name, 'utf-8').encode(), addr))
+
+from_addr = input('From: ')
+password = input('Password: ')
+to_addr = input('To: ')
+smtp_server = input('SMTP server: ')
+
+msg = MIMEText('hello, send by Python...', 'plain', 'utf-8')
+msg['From'] = _format_addr('Python爱好者 <%s>' % from_addr)
+msg['To'] = _format_addr('管理员 <%s>' % to_addr)
+msg['Subject'] = Header('来自SMTP的问候……', 'utf-8').encode()
+
+server = smtplib.SMTP(smtp_server, 25)
+server.set_debuglevel(1)
+server.login(from_addr, password)
+server.sendmail(from_addr, [to_addr], msg.as_string())
+server.quit()
+我们编写了一个函数_format_addr()来格式化一个邮件地址。
+注意不能简单地传入name <addr@example.com>，因为如果包含中文，需要通过Header对象进行编码。
+msg['To']接收的是字符串而不是list，如果有多个邮件地址，用,分隔即可。
+
+发送HTML邮件
+
+如果我们要发送HTML邮件，而不是普通的纯文本文件怎么办？
+方法很简单，在构造MIMEText对象时，把HTML字符串传进去，再把第二个参数由plain变为html就可以了：
+msg = MIMEText('<html><body><h1>Hello</h1>' +
+    '<p>send by <a href="http://www.python.org">Python</a>...</p>' +
+    '</body></html>', 'html', 'utf-8')
+	
+发送附件
+
+如果Email中要加上附件怎么办？带附件的邮件可以看做包含若干部分的邮件：文本和各个附件本身，
+所以，可以构造一个MIMEMultipart对象代表邮件本身，然后往里面加上一个MIMEText作为邮件正文，
+再继续往里面加上表示附件的MIMEBase对象即可：
+
+# 邮件对象:
+msg = MIMEMultipart()
+# 邮件正文是MIMEText:
+msg.attach(MIMEText('send with file...', 'plain', 'utf-8'))
+
+# 添加附件就是加上一个MIMEBase，从本地读取一个图片:
+with open('/Users/michael/Downloads/test.png', 'rb') as f:
+    # 设置附件的MIME和文件名，这里是png类型:
+    mime = MIMEBase('image', 'png', filename='test.png')
+    # 加上必要的头信息:
+    mime.add_header('Content-Disposition', 'attachment', filename='test.png')
+    mime.add_header('Content-ID', '<0>')
+    mime.add_header('X-Attachment-Id', '0')
+    # 把附件的内容读进来:
+    mime.set_payload(f.read())
+    # 用Base64编码:
+    encoders.encode_base64(mime)
+    # 添加到MIMEMultipart:
+    msg.attach(mime)
+	
+然后，按正常发送流程把msg（注意类型已变为MIMEMultipart）发送出去，就可以收到如下带附件的邮件：
+
+发送图片
+要把图片嵌入到邮件正文中，我们只需按照发送附件的方式，先把邮件作为附件添加进去，
+然后，在HTML中通过引用src="cid:0"就可以把附件作为图片嵌入了。
+如果有多个图片，给它们依次编号，然后引用不同的cid:x即可。
+把上面代码加入MIMEMultipart的MIMEText从plain改为html，然后在适当的位置引用图片：
+msg.attach(MIMEText('<html><body><h1>Hello</h1>' +
+    '<p><img src="cid:0"></p>' +
+    '</body></html>', 'html', 'utf-8'))
+
+同时支持HTML和Plain格式
+
+如果我们发送HTML邮件，收件人通过浏览器或者Outlook之类的软件是可以正常浏览邮件内容的，但是，如果收件人使用的设备太古老，查看不了HTML邮件怎么办？
+
+办法是在发送HTML的同时再附加一个纯文本，如果收件人无法查看HTML格式的邮件，就可以自动降级查看纯文本邮件。
+
+利用MIMEMultipart就可以组合一个HTML和Plain，要注意指定subtype是alternative：
+
+msg = MIMEMultipart('alternative')
+msg['From'] = ...
+msg['To'] = ...
+msg['Subject'] = ...
+
+msg.attach(MIMEText('hello', 'plain', 'utf-8'))
+msg.attach(MIMEText('<html><body><h1>Hello</h1></body></html>', 'html', 'utf-8'))
+# 正常发送msg对象...
+
+加密SMTP
+我们来看看如何通过Gmail提供的安全SMTP发送邮件。
+必须知道，Gmail的SMTP端口是587，因此，修改代码如下：
+
+smtp_server = 'smtp.gmail.com'
+smtp_port = 587
+server = smtplib.SMTP(smtp_server, smtp_port)
+server.starttls()
+# 剩下的代码和前面的一模一样:
+server.set_debuglevel(1)
+...
+只需要在创建SMTP对象后，立刻调用starttls()方法，就创建了安全连接。
+后面的代码和前面的发送邮件代码完全一样。
+
+小结
+使用Python的smtplib发送邮件十分简单，只要掌握了各种邮件类型的构造方法，正确设置好邮件头，就可以顺利发出。
+构造一个邮件对象就是一个Messag对象，如果构造一个MIMEText对象，就表示一个文本邮件对象，
+如果构造一个MIMEImage对象，就表示一个作为附件的图片，要把多个对象组合起来，就用MIMEMultipart对象，
+而MIMEBase可以表示任何对象。它们的继承关系如下：
+
+Message
++- MIMEBase
+   +- MIMEMultipart
+   +- MIMENonMultipart
+      +- MIMEMessage
+      +- MIMEText
+      +- MIMEImage
+这种嵌套关系就可以构造出任意复杂的邮件。你可以通过email.mime文档查看它们所在的包以及详细的用法。
+
+POP3收取邮件
+Python内置一个poplib模块，实现了POP3协议，可以直接用来收邮件。
+注意到POP3协议收取的不是一个已经可以阅读的邮件本身，而是邮件的原始文本，
+这和SMTP协议很像，SMTP发送的也是经过编码后的一大段文本。
+要把POP3收取的文本变成可以阅读的邮件，还需要用email模块提供的各种类来解析原始文本，变成可阅读的邮件对象。
+所以，收取邮件分两步：
+第一步：用poplib把邮件的原始文本下载到本地；
+第二部：用email解析原始文本，还原为邮件对象。
+通过POP3下载邮件
+
+POP3协议本身很简单，以下面的代码为例，我们来获取最新的一封邮件内容：
+
+from email.parser import Parser
+from email.header import decode_header
+from email.utils import parseaddr
+import poplib
+
+# 输入邮件地址, 口令和POP3服务器地址:
+email = input('Email: ')
+password = input('Password: ')
+pop3_server = input('POP3 server: ')
+
+# 连接到POP3服务器:
+server = poplib.POP3(pop3_server)
+#server = poplib.POP3_SSL(pop3_server)  加密
+# 可以打开或关闭调试信息:
+server.set_debuglevel(1)
+# 可选:打印POP3服务器的欢迎文字:
+print(server.getwelcome().decode('utf-8'))
+
+# 身份认证:
+server.user(email)
+server.pass_(password)
+
+# stat()返回邮件数量和占用空间:
+print('Messages: %s. Size: %s' % server.stat())
+# list()返回所有邮件的编号:
+resp, mails, octets = server.list()
+# 可以查看返回的列表类似[b'1 82923', b'2 2184', ...]
+print(mails)
+
+# 获取最新一封邮件, 注意索引号从1开始:
+index = len(mails)
+resp, lines, octets = server.retr(index)
+
+# lines存储了邮件的原始文本的每一行,
+# 可以获得整个邮件的原始文本:
+msg_content = b'\r\n'.join(lines).decode('utf-8')
+# 稍后解析出邮件:
+msg = Parser().parsestr(msg_content)
+
+# 可以根据邮件索引号直接从服务器删除邮件:
+# server.dele(index)
+# 关闭连接:
+server.quit()
+用POP3获取邮件其实很简单，要获取所有邮件，只需要循环使用retr()把每一封邮件内容拿到即可。
+真正麻烦的是把邮件的原始内容解析为可以阅读的邮件对象。
+
+
+但是这个Message对象本身可能是一个MIMEMultipart对象，即包含嵌套的其他MIMEBase对象，嵌套可能还不止一层。
+
+所以我们要递归地打印出Message对象的层次结构：
+
+# indent用于缩进显示:
+def print_info(msg, indent=0):
+    if indent == 0:
+        for header in ['From', 'To', 'Subject']:
+            value = msg.get(header, '')
+            if value:
+                if header=='Subject':
+                    value = decode_str(value)
+                else:
+                    hdr, addr = parseaddr(value)
+                    name = decode_str(hdr)
+                    value = u'%s <%s>' % (name, addr)
+            print('%s%s: %s' % ('  ' * indent, header, value))
+    if (msg.is_multipart()):
+        parts = msg.get_payload()
+        for n, part in enumerate(parts):
+            print('%spart %s' % ('  ' * indent, n))
+            print('%s--------------------' % ('  ' * indent))
+            print_info(part, indent + 1)
+    else:
+        content_type = msg.get_content_type()
+        if content_type=='text/plain' or content_type=='text/html':
+            content = msg.get_payload(decode=True)
+            charset = guess_charset(msg)
+            if charset:
+                content = content.decode(charset)
+            print('%sText: %s' % ('  ' * indent, content + '...'))
+        else:
+            print('%sAttachment: %s' % ('  ' * indent, content_type))
+			
+邮件的Subject或者Email中包含的名字都是经过编码后的str，要正常显示，就必须decode：
+
+def decode_str(s):
+    value, charset = decode_header(s)[0]
+    if charset:
+        value = value.decode(charset)
+    return value
+decode_header()返回一个list，因为像Cc、Bcc这样的字段可能包含多个邮件地址，
+所以解析出来的会有多个元素。上面的代码我们偷了个懒，只取了第一个元素。
+
+文本邮件的内容也是str，还需要检测编码，否则，非UTF-8编码的邮件都无法正常显示：
+
+def guess_charset(msg):
+    charset = msg.get_charset()
+    if charset is None:
+        content_type = msg.get('Content-Type', '').lower()
+        pos = content_type.find('charset=')
+        if pos >= 0:
+            charset = content_type[pos + 8:].strip()
+    return charset
+把上面的代码整理好，我们就可以来试试收取一封邮件
+我们从打印的结构可以看出，这封邮件是一个MIMEMultipart，它包含两部分：
+第一部分又是一个MIMEMultipart，第二部分是一个附件。
+而内嵌的MIMEMultipart是一个alternative类型，它包含一个纯文本格式的MIMEText和一个HTML格式的MIMEText。
+
+小结
+
+用Python的poplib模块收取邮件分两步：第一步是用POP3协议把邮件获取到本地，第二步是用email模块把原始邮件解析为Message对象，
+然后，用适当的形式把邮件内容展示给用户即可。
+
+访问数据库
+NoSQL
+
+你也许还听说过NoSQL数据库，很多NoSQL宣传其速度和规模远远超过关系数据库，
+所以很多同学觉得有了NoSQL是否就不需要SQL了呢？
+千万不要被他们忽悠了，连SQL都不明白怎么可能搞明白NoSQL呢？
+
+数据库类别
+
+既然我们要使用关系数据库，就必须选择一个关系数据库。目前广泛使用的关系数据库也就这么几种：
+
+付费的商用数据库：
+Oracle，典型的高富帅；
+SQL Server，微软自家产品，Windows定制专款；
+DB2，IBM的产品，听起来挺高端；
+Sybase，曾经跟微软是好基友，后来关系破裂，现在家境惨淡。
+
+无论是Google、Facebook，还是国内的BAT，无一例外都选择了免费的开源数据库：
+MySQL，大家都在用，一般错不了；
+PostgreSQL，学术气息有点重，其实挺不错，但知名度没有MySQL高；
+sqlite，嵌入式数据库，适合桌面和移动应用。
+
+使用SQLite
+要操作关系数据库，首先需要连接到数据库，一个数据库连接称为Connection；
+连接到数据库后，需要打开游标，称之为Cursor，通过Cursor执行SQL语句，然后，获得执行结果。
+Python定义了一套操作数据库的API接口，任何数据库要连接到Python，
+只需要提供符合Python标准的数据库驱动即可。
+由于SQLite的驱动内置在Python标准库中，所以我们可以直接来操作SQLite数据库。
+我们在Python交互式命令行实践一下：
+
+# 导入SQLite驱动:
+>>> import sqlite3
+# 连接到SQLite数据库
+# 数据库文件是test.db
+# 如果文件不存在，会自动在当前目录创建:
+>>> conn = sqlite3.connect('test.db')
+# 创建一个Cursor:
+>>> cursor = conn.cursor()
+# 执行一条SQL语句，创建user表:
+>>> cursor.execute('create table user (id varchar(20) primary key, name varchar(20))')
+<sqlite3.Cursor object at 0x10f8aa260>
+# 继续执行一条SQL语句，插入一条记录:
+>>> cursor.execute('insert into user (id, name) values (\'1\', \'Michael\')')
+<sqlite3.Cursor object at 0x10f8aa260>
+# 通过rowcount获得插入的行数:
+>>> cursor.rowcount
+1
+# 关闭Cursor:
+>>> cursor.close()
+# 提交事务:
+>>> conn.commit()
+# 关闭Connection:
+>>> conn.close()
+
+我们再试试查询记录：
+
+>>> conn = sqlite3.connect('test.db')
+>>> cursor = conn.cursor()
+# 执行查询语句:
+>>> cursor.execute('select * from user where id=?', ('1',))
+<sqlite3.Cursor object at 0x10f8aa340>
+# 获得查询结果集:
+>>> values = cursor.fetchall()
+>>> values
+[('1', 'Michael')]
+>>> cursor.close()
+>>> conn.close()
+使用Python的DB-API时，只要搞清楚Connection和Cursor对象，打开后一定记得关闭，就可以放心地使用。
+使用Cursor对象执行insert，update，delete语句时，执行结果由rowcount返回影响的行数，
+就可以拿到执行结果。
+使用Cursor对象执行select语句时，通过featchall()可以拿到结果集。
+结果集是一个list，每个元素都是一个tuple，对应一行记录。
+如果SQL语句带有参数，那么需要把参数按照位置传递给execute()方法，
+有几个?占位符就必须对应几个参数，例如：
+cursor.execute('select * from user where name=? and pwd=?', ('abc', 'password'))
+SQLite支持常见的标准SQL语句以及几种常见的数据类型。具体文档请参阅SQLite官方网站。
+小结
+
+在Python中操作数据库时，要先导入数据库对应的驱动，
+然后，通过Connection对象和Cursor对象操作数据。
+要确保打开的Connection对象和Cursor对象都正确地被关闭，否则，资源就会泄露。
+如何才能确保出错的情况下也关闭掉Connection对象和Cursor对象呢？
+请回忆try:...except:...finally:...的用法。
+
+使用MySQL
+MySQL是Web世界中使用最广泛的数据库服务器。
+SQLite的特点是轻量级、可嵌入，但不能承受高并发访问，适合桌面和移动应用。
+而MySQL是为服务器端设计的数据库，能承受高并发访问，同时占用的内存也远远大于SQLite。
+此外，MySQL内部有多种数据库引擎，最常用的引擎是支持数据库事务的InnoDB。
+
+在Windows上，安装时请选择UTF-8编码，以便正确地处理中文。
+
+在Mac或Linux上，需要编辑MySQL的配置文件，把数据库默认的编码全部改为UTF-8。
+MySQL的配置文件默认存放在/etc/my.cnf或者/etc/mysql/my.cnf：
+
+[client]
+default-character-set = utf8
+
+[mysqld]
+default-storage-engine = INNODB
+character-set-server = utf8
+collation-server = utf8_general_ci
+
+重启MySQL后，可以通过MySQL的客户端命令行检查编码：
+
+mysql> show variables like '%char%';
+看到utf8字样就表示编码设置正确。
+注：如果MySQL的版本≥5.5.3，可以把编码设置为utf8mb4，utf8mb4和utf8完全兼容，
+但它支持最新的Unicode标准，可以显示emoji字符。
+
+安装MySQL驱动
+
+由于MySQL服务器以独立的进程运行，并通过网络对外服务，
+所以，需要支持Python的MySQL驱动来连接到MySQL服务器。
+MySQL官方提供了mysql-connector-python驱动，但是安装的时候需要给pip命令加上参数--allow-external：
+$ pip install mysql-connector-python --allow-external mysql-connector-python
+如果上面的命令安装失败，可以试试另一个驱动：
+
+$ pip install mysql-connector
+
+我们演示如何连接到MySQL服务器的test数据库：
+
+# 导入MySQL驱动:
+>>> import mysql.connector
+# 注意把password设为你的root口令:
+>>> conn = mysql.connector.connect(user='root', password='password', database='test')
+>>> cursor = conn.cursor()
+# 创建user表:
+>>> cursor.execute('create table user (id varchar(20) primary key, name varchar(20))')
+# 插入一行记录，注意MySQL的占位符是%s:
+>>> cursor.execute('insert into user (id, name) values (%s, %s)', ['1', 'Michael'])
+>>> cursor.rowcount
+1
+# 提交事务:
+>>> conn.commit()
+>>> cursor.close()
+# 运行查询:
+>>> cursor = conn.cursor()
+>>> cursor.execute('select * from user where id = %s', ('1',))
+>>> values = cursor.fetchall()
+>>> values
+[('1', 'Michael')]
+# 关闭Cursor和Connection:
+>>> cursor.close()
+True
+>>> conn.close()
+由于Python的DB-API定义都是通用的，所以，操作MySQL的数据库代码和SQLite类似。
+
+小结
+
+执行INSERT等操作后要调用commit()提交事务；
+
+MySQL的SQL占位符是%s。
+
+使用SQLAlchemy
+数据库表是一个二维表，包含多行多列。
+把一个表的内容用Python的数据结构表示出来的话，可以用一个list表示多行，
+list的每一个元素是tuple，表示一行记录，
+比如，包含id和name的user表：
+ORM技术：Object-Relational Mapping，把关系数据库的表结构映射到对象上
+在Python中，最有名的ORM框架是SQLAlchemy。我们来看看SQLAlchemy的用法。
+首先通过pip安装SQLAlchemy：
+$ pip install sqlalchemy
+然后，利用上次我们在MySQL的test数据库中创建的user表，用SQLAlchemy来试试：
+
+第一步，导入SQLAlchemy，并初始化DBSession：
+
+# 导入:
+from sqlalchemy import Column, String, create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+# 创建对象的基类:
+Base = declarative_base()
+
+# 定义User对象:
+class User(Base):
+    # 表的名字:
+    __tablename__ = 'user'
+
+    # 表的结构:
+    id = Column(String(20), primary_key=True)
+    name = Column(String(20))
+
+# 初始化数据库连接:
+engine = create_engine('mysql+mysqlconnector://root:password@localhost:3306/test')
+# 创建DBSession类型:
+DBSession = sessionmaker(bind=engine)
+以上代码完成SQLAlchemy的初始化和具体每个表的class定义。如果有多个表，就继续定义其他class，例如School：
+
+class School(Base):
+    __tablename__ = 'school'
+    id = ...
+    name = ...
+create_engine()用来初始化数据库连接。SQLAlchemy用一个字符串表示连接信息：
+
+'数据库类型+数据库驱动名称://用户名:口令@机器地址:端口号/数据库名'
+你只需要根据需要替换掉用户名、口令等信息即可。
+
+下面，我们看看如何向数据库表中添加一行记录。
+
+由于有了ORM，我们向数据库表中添加一行记录，可以视为添加一个User对象：
+
+# 创建session对象:
+session = DBSession()
+# 创建新User对象:
+new_user = User(id='5', name='Bob')
+# 添加到session:
+session.add(new_user)
+# 提交即保存到数据库:
+session.commit()
+# 关闭session:
+session.close()
+可见，关键是获取session，然后把对象添加到session，最后提交并关闭。
+DBSession对象可视为当前数据库连接。
+
+如何从数据库表中查询数据呢？有了ORM，查询出来的可以不再是tuple，而是User对象。SQLAlchemy提供的查询接口如下：
+
+# 创建Session:
+session = DBSession()
+# 创建Query查询，filter是where条件，最后调用one()返回唯一行，如果调用all()则返回所有行:
+user = session.query(User).filter(User.id=='5').one()
+# 打印类型和对象的name属性:
+print('type:', type(user))
+print('name:', user.name)
+# 关闭Session:
+session.close()
+运行结果如下：
+
+type: <class '__main__.User'>
+name: Bob
+可见，ORM就是把数据库表的行与相应的对象建立关联，互相转换。
+
+由于关系数据库的多个表还可以用外键实现一对多、多对多等关联，
+相应地，ORM框架也可以提供两个对象之间的一对多、多对多等功能。
+
+例如，如果一个User拥有多个Book，就可以定义一对多关系如下：
+
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(String(20), primary_key=True)
+    name = Column(String(20))
+    # 一对多:
+    books = relationship('Book')
+
+class Book(Base):
+    __tablename__ = 'book'
+
+    id = Column(String(20), primary_key=True)
+    name = Column(String(20))
+    # “多”的一方的book表是通过外键关联到user表的:
+    user_id = Column(String(20), ForeignKey('user.id'))
+当我们查询一个User对象时，该对象的books属性将返回一个包含若干个Book对象的list。
+
+小结
+ORM框架的作用就是把数据库表的一行记录与一个对象互相做自动转换。
+正确使用ORM的前提是了解关系数据库的原理。
+
+Web开发
+MVC：为了解决直接用脚本语言嵌入HTML导致的可维护性差的问题，
+Web应用也引入了Model-View-Controller的模式，来简化Web开发。
+ASP发展为ASP.Net，JSP和PHP也有一大堆MVC框架。
+目前，Web开发技术仍在快速发展中，异步开发、新的MVVM前端技术层出不穷。
+Python的诞生历史比Web还要早，由于Python是一种解释型的脚本语言，开发效率高，所以非常适合用来做Web开发。
