@@ -1,0 +1,17 @@
+在Linux上安装Git
+Debian或Ubuntu Linux，通过一条sudo apt-get install git
+CentOS yum install git
+老一点的Debian或Ubuntu Linux，要把命令改为sudo apt-get install git-core
+安装完成后，还需要最后一步设置，在命令行输入：
+$ git config --global user.name "Your Name"
+$ git config --global user.email "email@example.com"
+创建一个空目录：
+第二步，通过git init命令把这个目录变成Git可以管理的仓库：
+$ git init
+第一步，用命令git add告诉Git，把文件添加到仓库：
+$ git add readme.txt
+第二步，用命令git commit告诉Git，把文件提交到仓库：
+$ git commit -m "wrote a readme file"
+
+时光机穿梭
+修改readme.txt文件
