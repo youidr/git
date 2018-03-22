@@ -266,3 +266,329 @@ def select_table(table, column, condition, value ):
 模板
 
 tornado 提供比较好用的前端模板(tornado.template)。通过这个模板，能够让前端编写更方便。
+
+render()
+
+render() 方法能够告诉 tornado 读入哪个模板，插入其中的模板代码，并返回结果给浏览器。
+比如在 IndexHandler 类中 get() 方法里面的 self.render("index.html")，就是让 tornado 到 templates 目中找到名为 index.html 的文件，读出它的内容，返回给浏览器。
+
+将 index.html 和 index.py 文件做如下改造。
+class IndexHandler(tornado.web.RequestHandler):
+    def get(self):
+        usernames = mrd.select_columns(table="users",column="username")
+        one_user = usernames[0][0]
+        self.render("index.html", user=one_user)
+index.py 文件中，只修改了 get() 方法，从数据库中读取用户名，并且提出一个用户（one_user），
+然后通过 self.render("index.html", user=one_user) 将这个用户名放到 index.html 中，其中 user=one_user 的作用就是传递对象到模板。
+
+已经修改之后的 db.py 文件代码，比上一节多了函数 select_columns：
+def select_columns(table, column ):
+    sql = "select " + column + " from " + table
+    cur.execute(sql)
+    lines = cur.fetchall()
+    return lines
+
+要求用户正确登录之后，跳转到另外一个页面，并且在那个页面中显示出用户的完整信息。
+先修改 url.py 文件，在其中增加一些内容。
+后就建立 handlers/user.py 文件，
+import tornado.web
+import methods.readdb as mrd
+
+class UserHandler(tornado.web.RequestHandler):
+    def get(self):
+        username = self.get_argument("user")
+        user_infos = mrd.select_table(table="users",column="*",condition="username",value=username)
+        self.render("user.html", users = user_infos)
+在 get() 中使用 self.get_argument("user")，目的是要通过 url 获取参数 user 的值。
+因此，当用户登录后，得到正确返回值，那么 js 应该用这样的方式载入新的页面。
+
+注意：上述的 user.py 代码为了简单突出本将要说明的，没有对 user_infos 的结果进行判断。在实际的编程中，这要进行判断或者使用 try...except。
+接下来是 user.html 模板。注意上面的代码中，user_infos 引用的对象不是一个字符串了，也就是传入模板的不是一个字符串，是一个元组。
+对此，模板这样来处理它。
+<!DOCTYPE html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Learning Python</title>
+</head>
+<body>
+    <h2>Your informations are:</h2>
+    <ul>
+        {% for one in users %}
+            <li>username:{{one[1]}}</li>
+            <li>password:{{one[2]}}</li>
+            <li>email:{{one[3]}}</li>
+        {% end %}
+    </ul>
+</body>
+模板语法
+
+在模板的双大括号中，可以写类似 Python 的语句或者表达式。比如：
+
+>>> from tornado.template import Template
+>>> print Template("{{ 3+4 }}").generate()
+7
+>>> print Template("{{ 'python'[0:2] }}").generate()
+py
+>>> print Template("{{ '-'.join(str(i) for i in range(10)) }}").generate()
+0-1-2-3-4-5-6-7-8-9
+意即如果在模板中，某个地方写上{{ 3+4 }}，当那个模板被 render() 读入之后，在页面上该占位符的地方就显示 7。
+这说明 tornado 自动将双大括号内的表达式进行计算，并将其结果以字符串的形式返回到浏览器输出。
+除了表达式之外，Python 的语句也可以在表达式中使用，包括 if、for、while 和 try。
+只不过要有一个语句开始和结束的标记，用以区分那里是语句、哪里是 HTML 标记符。
+语句的形式：{{% 语句 %}}
+例如：
+{{% if user=='qiwsir' %}}
+    {{ user }}
+{{% end %}}
+上面的举例中，第一行虽然是 if 语句，但是不要在后面写冒号了。
+最后一行一定不能缺少，表示语句块结束。将这一个语句块放到模板中，当被 render 读取此模板的时候，tornado 将执行结果返回给浏览器显示，跟前面的表达式一样。
+实际的例子可以看上图输出结果和对应的循环语句。
+转义字符
+虽然读者现在已经对字符转义问题不陌生了，但是在网站开发中，它还将是一个令人感到麻烦的问题。
+所谓转义字符（Escape Sequence）也称字符实体(Character Entity)，它的存在是因为在网页中 <, > 之类的符号，是不能直接被输出的，
+因为它们已经被用作了 HTML 标记符了，如果在网页上用到它们，就要转义。
+另外，也有一些字符在 ASCII 字符集中没有定义（如版权符号“©”），这样的符号要在 HTML 中出现，也需要转义字符（如“©”对应的转义字符是“＆copy;”）。
+上述是指前端页面的字符转义，其实不仅前端，在后端程序中，因为要读写数据库，也会遇到字符转义问题。
+比如一个简单的查询语句：select username, password from usertable where username='qiwsir'，
+如果在登录框中没有输入 qiwsir，而是输入了 a;drop database;，这个查询语句就变成了 select username, password from usertable where username=a; drop database;，
+如果后端程序执行了这条语句会怎么样呢？
+后果很严重，因为会 drop database，届时真的是欲哭无泪了。
+类似的情况还很多，比如还可以输入 <input type="text" />，结果出现了一个输入框，如果是 <form action="..."，会造成跨站攻击了。
+这方面的问题还不少呢，读者有空可以到网上搜一下所谓 sql 注入问题，能了解更多。
+所以，后端也要转义。
+转义是不是很麻烦呢？
+Tornado 为你着想了，因为存在以上转义问题，而且会有粗心的程序员忘记了，于是 Tornado 中，模板默认为自动转义。
+这是多么好的设计呀。于是所有表单输入的，你就不用担心会遇到上述问题了。
+自动转义是一个好事情，但是，有时候会不需要转义，比如想在模板中这样做：
+{% set website = "<a href='http://www.itdiffer.com'>welcome to my website</a>" %}
+    {{ website }}
+本希望能够出现的是有一行字“welcome to my website”，点击这行字，就可以打开对应链接的网站。可是，看到了这个：
+下面那一行，把整个源码都显示出来了。这就是因为自动转义的结果。这里需要的是不转义。于是可以将{{ website }}修改为：
+{% raw website %}
+表示这一行不转义。但是别的地方还是转义的。这是一种最推荐的方法。
+如果你要全转义，可以使用：
+{% autoescape None %}
+{{ website }}
+貌似省事，但是我不推荐。
+几个备查函数
+下面几个函数，放在这里备查，或许在某些时候用到。都是可以使用在模板中的。
+escape(s)：替换字符串 s 中的 &、<、> 为他们对应的 HTML 字符。
+url_escape(s)：使用 urllib.quote_plus 替换字符串 s 中的字符为 URL 编码形式。
+json_encode(val)：将 val 编码成 JSON 格式。
+squeeze(s)：过滤字符串 s，把连续的多个空白字符替换成一个空格。
+此外，在模板中也可以使用自己编写的函数。但不常用。
+
+模板继承
+<header>
+    {% block header %}{% end %}
+</header>
+{% extends "base.html" %}
+{% block header %}
+    <h2>登录页面</h2>
+    <p>用用户名为：{{user}}登录</p>
+{% end %}
+
+cookie 和安全
+cookie的缺陷
+在 tornado 中，也提供对 cookie 的读写函数。
+set_cookie() 和 get_cookie() 是默认提供的两个方法，但是它是明文不加密传输的。
+在 index.py 文件的 IndexHandler 类的 post() 方法中，当用户登录，验证用户名和密码后，将用户名和密码存入 cookie
+self.set_cookie(username, db_pwd)
+明文存储，显然不安全。
+tornado 提供另外一种安全的方法：set_secure_cookie() 和 get_secure_cookie()，称其为安全 cookie，是因为它以明文加密方式传输。
+此外，跟 set_cookie() 的区别还在于， set_secure_cookie() 执行后的 cookie 保存在磁盘中，直到它过期为止。
+也是因为这个原因，即使关闭浏览器，在失效时间之间，cookie 都一直存在。
+要是用 set_secure_cookie() 方法设置 cookie，要先在 application.py 文件的 setting 中进行如下配置：
+cookie_secret = "bZJc2sWbQLKos6GkHn/VB9oXwQt8S0R0kRvJ5/xJ89E="
+其中 cookie_secret = "bZJc2sWbQLKos6GkHn/VB9oXwQt8S0R0kRvJ5/xJ89E="是为此增加的，但是，它并不是这正的加密，仅仅是一个障眼法罢了。
+因为 tornado 会将 cookie 值编码为 Base-64 字符串，并增加一个时间戳和一个 cookie 内容的 HMAC 签名。
+所以，cookie_secret 的值，常常用下面的方式生成（这是一个随机的字符串）：
+>>> import base64, uuid
+>>> base64.b64encode(uuid.uuid4().bytes)
+'w8yZud+kRHiP9uABEXaQiA=='
+如果嫌弃上面的签名短，可以用 base64.b64encode(uuid.uuid4().bytes + uuid.uuid4().bytes) 获取。
+这里得到的是一个随机字符串，用它作为 cookie_secret 值。
+然后修改 index.py 中设置 cookie 那句话，变成：
+self.set_secure_cookie(username,db_pwd)
+如果要获取此 cookie，用 self.get_secure_cookie(username) 即可。
+这是不是就安全了。如果这样就安全了，你太低估黑客们的技术实力了，甚至于用户自己也会修改 cookie 值。
+所以，还不安全。所以，又有了 httponly 和 secure 属性，用来防范 cookie 投毒。设置方法是：
+self.set_secure_cookie(username, db_pwd, httponly=True, secure=True)
+用这样的方法，浏览器通过 SSL 连接传递 cookie，能够在一定程度上防范跨站脚本攻击。
+
+XSRF
+在 tornado 中，提供了 XSRF 保护的方法。
+在 application.py 文件中，使用 xsrf_cookies 参数开启 XSRF 保护。
+xsrf_cookies = True
+这样设置之后，Tornado 将拒绝请求参数中不包含正确的_xsrf 值的 post/put/delete 请求。
+tornado 会在后面悄悄地处理_xsrf cookies，所以，在表单中也要包含 XSRF 令牌以却表请求合法。比如 index.html 的表单，修改如下：
+{% raw xsrf_form_html() %}
+{% raw xsrf_form_html() %}是新增的，目的就在于实现上面所说的授权给前端以合法请求。
+
+前端向后端发送的请求是通过 ajax()，所以，在 ajax 请求中，需要一个 _xsrf 参数。
+以下是 script.js 的代码
+function getCookie(name){
+    var x = document.cookie.match("\\b" + name + "=([^;]*)\\b");
+    return x ? x[1]:undefined;
+}
+var pd = {"username":user, "password":pwd, "_xsrf":getCookie("_xsrf")};
+
+用户验证
+
+用户登录之后，当翻到别的目录中时，往往需要验证用户是否处于登录状态。
+当然，一种比较直接的方法，就是在转到每个目录时，都从 cookie 中把用户信息，然后传到后端，跟数据库验证。
+这不仅是直接的，也是基本的流程。但是，这个过程如果总让用户自己来做，框架的作用就显不出来了。tornado 就提供了一种用户验证方法。
+
+在 handler 目录中增加一个文件，名称是 base.py，代码如下：
+
+#! /usr/bin/env python
+# coding=utf-8
+
+import tornado.web
+
+class BaseHandler(tornado.web.RequestHandler):
+    def get_current_user(self):
+        return self.get_secure_cookie("user")
+
+在这个文件中，目前只做一个事情，就是建立一个名为 BaseHandler 的类，然后在里面放置一个方法，就是得到当前的 cookie。
+在这里特别要向读者说明，在这个类中，其实还可以写不少别的东西，比如你就可以将数据库连接写到这个类的初始化__init__()方法中。
+因为在其它的类中，我们要继承这个类。
+
+把 index.py 文件改写为：
+from base import BaseHandler
+import tornado.escape
+self.set_current_user(username)    #将当前用户名写入 cookie，方法见下面
+
+def set_current_user(self, user):
+        if user:
+            self.set_secure_cookie('user', tornado.escape.json_encode(user))    #注意这里使用了 tornado.escape.json_encode() 方法
+        else:
+            self.clear_cookie("user")
+
+class ErrorHandler(BaseHandler):    #增加了一个专门用来显示错误的页面
+    def get(self):                                        #但是后面不单独讲述，读者可以从源码中理解
+        self.render("error.html")
+
+在 index.py 的类 IndexHandler 中，继承了 BaseHandler 类，并且增加了一个方法 set_current_user() 用于将用户名写入 cookie。
+请读者特别注意那个 tornado.escape.json_encode() 方法，其功能是：
+tornado.escape.json_encode(value) JSON-encodes the given Python object.
+如果要查看源码，可以阅读：http://www.tornadoweb.org/en/branch2.3/escape.html
+这样做的本质是把 user 转化为 json，写入到了 cookie 中。如果从 cookie 中把它读出来，使用 user 的值时，还会用到：
+tornado.escape.json_decode(value) Returns Python objects for the given JSON string
+它们与json 模块中的 dump()、load()功能相仿。
+
+接下来要对 user.py 文件也进行重写：
+import tornado.web
+import tornado.escape
+import methods.readdb as mrd
+from base import BaseHandler
+
+class UserHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        #username = self.get_argument("user")
+        username = tornado.escape.json_decode(self.current_user)
+        user_infos = mrd.select_table(table="users",column="*",condition="username",value=username)
+        self.render("user.html", users = user_infos)
+
+在 get() 方法前面添加 @tornado.web.authenticated，这是一个装饰器，它的作用就是完成 tornado 的认证功能，即能够得到当前合法用户。
+在原来的代码中，用 username = self.get_argument("user") 方法，从 url 中得到当前用户名，
+现在把它注释掉，改用 self.current_user，这是和前面的装饰器配合使用的，
+如果它的值为假，就根据 setting 中的设置，寻找 login_url 所指定的目录（请关注下面对 setting 的配置）。
+在 index.py 文件的 set_current_user() 方法中，是将 user 值转化为 json 写入 cookie 的，这里就得用 username = tornado.escape.json_decode(self.current_user) 解码。
+得到的 username 值，可以被用于后一句中的数据库查询。
+application.py 中的 setting 也要做相应修改：
+login_url = '/',
+与以前代码的重要区别在于 login_url = '/',，如果用户不合法，根据这个设置，会返回到首页。
+当然，如果有单独的登录界面，比如是 /login，也可以 login_url = '/login'。
+如此完成的是用户登录到网站之后，在页面转换的时候实现用户认证。
+之所以选 tornado，就是因为它能够解决 c10k 问题，即能够实现大用户量访问。
+tornado 的同步
+此前，在 tornado 基础上已经完成的 web，就是同步的、阻塞的。为了更明显的感受这点，不妨这样试一试。
+在 handlers 文件夹中建立一个文件，命名为 sleep.py
+from base import BaseHandler
+import time
+
+class SleepHandler(BaseHandler):
+    def get(self):
+        time.sleep(17)
+        self.render("sleep.html")
+
+class SeeHandler(BaseHandler):
+    def get(self):
+        self.render("see.html")
+
+异步设置
+tornado 本来就是一个异步的服务框架，体现在 tornado 的服务器和客户端的网络交互的异步上，起作用的是 tornado.ioloop.IOLoop。
+但是如果的客户端请求服务器之后，在执行某个方法的时候，
+比如上面的代码中执行 get() 方法的时候，遇到了 time.sleep(17) 这个需要执行时间比较长的操作，耗费时间，就会使整个 tornado 服务器的性能受限了。
+为了解决这个问题，tornado 提供了一套异步机制，就是异步装饰器 @tornado.web.asynchronous：
+修改上面的 sleep文件代码
+class SleepHandler(BaseHandler):
+    @tornado.web.asynchronous
+    def get(self):
+        tornado.ioloop.IOLoop.instance().add_timeout(time.time() + 17, callback=self.on_response)
+    def on_response(self):
+        self.render("sleep.html")
+        self.finish()
+
+将 sleep.py 的代码如上述一样改造，即在 get() 方法前面增加了装饰器 @tornado.web.asynchronous，
+它的作用在于将 tornado 服务器本身默认的设置_auto_fininsh 值修改为 false。
+如果不用这个装饰器，客户端访问服务器的 get() 方法并得到返回值之后，两只之间的连接就断开了，
+但是用了 @tornado.web.asynchronous 之后，这个连接就不关闭，直到执行了 self.finish() 才关闭这个连接。
+tornado.ioloop.IOLoop.instance().add_timeout() 也是一个实现异步的函数，time.time()+17 是给前面函数提供一个参数，
+这样实现了相当于 time.sleep(17) 的功能，不过，还没有完成，
+当这个操作完成之后，就执行回调函数 on_response() 中的 self.render("sleep.html")，并关闭连接 self.finish()。
+过程清楚了。所谓异步，就是要解决原来的 time.sleep(17) 造成的服务器处理时间长，性能下降的问题。解决方法如上描述。
+如果有这么一点感觉，是正常的。因为它里面除了装饰器之外，用到了一个回调函数，它让代码的逻辑不是平铺下去，而是被分割为了两段。
+第一段是 tornado.ioloop.IOLoop.instance().add_timeout(time.time() + 17, callback=self.on_response)，
+用callback=self.on_response 来使用回调函数，并没有如同改造之前直接 self.render("sleep.html")；
+第二段是回调函数 on_response(self)，要在这个函数里面执行self.render("sleep.html")
+
+这还是执行简单逻辑，如果复杂了，不断地要进行“回调”，无法让逻辑顺利延续，那面会“眩晕”了。
+这种现象被业界成为“代码逻辑拆分”，打破了原有逻辑的顺序性。为了让代码逻辑不至于被拆分的七零八落，于是就出现了另外一种常用的方法：
+    @tornado.gen.coroutine
+    def get(self):
+        yield tornado.gen.Task(tornado.ioloop.IOLoop.instance().add_timeout, time.time() + 10)
+        self.render("see.html")
+从整体上看，这段代码避免了回调函数，看着顺利多了。
+再看细节部分。
+首先使用的是 @tornado.gen.coroutine 装饰器，所以要在前面有 import tornado.gen。
+跟这个装饰器类似的是 @tornado.gen.engine 装饰器，两者功能类似，有一点细微差别。请阅读官方对此的解释：
+This decorator(指 engine) is similar to coroutine, except it does not return a Future and the callback argument is not treated specially.
+@tornado.gen.engine 是古时候用的，现在我们都使用 @tornado.gen.corroutine 了，这个是在 tornado 3.0 以后开始。
+在网上查阅资料的时候，会遇到一些使用 @tornado.gen.engine 的，但是在你使用或者借鉴代码的时候，就勇敢地将其修改为 @tornado.gen.coroutine 好了。
+有了这个装饰器，就能够控制下面的生成器的流程了。
+tornado.gen.Task(tornado.ioloop.IOLoop.instance().add_timeout, time.time() + 17) 的执行过程，应该先看括号里面，跟前面的一样，是来替代 time.sleep(17) 的，
+然后是 tornado.gen.Task() 方法，其作用是“Adapts a callback-based asynchronous function for use in coroutines.”（由于怕翻译后遗漏信息，引用原文）。
+返回后，最后使用 yield 得到了一个生成器，先把流程挂起，等完全完毕，再唤醒继续执行。要提醒读者，生成器都是异步的。
+其实，上面啰嗦一对，可以用代码中注释了的一句话来代替 yield tornado.gen.sleep(17)，之所以扩所，就是为了顺便看到 tornado.gen.Task() 方法，
+因为如果读者在看古老的代码时候，会遇到。但是，后面你写的时候，就不要那么啰嗦了，请用 yield tornado.gen.sleep()。
+至此，基本上对 tornado 的异步设置有了概览，不过，上面的程序在实际中没有什么价值。
+在工程中，要让 tornado 网站真正异步起来，还要做很多事情，不仅仅是如上面的设置，因为很多东西，其实都不是异步的。
+实践中的异步
+以下各项同步（阻塞）的，如果在 tornado 中按照之前的方式只用它们，就是把 tornado 的非阻塞、异步优势削减了。
+数据库的所有操作，不管你的数据是 SQL 还是 noSQL，connect、insert、update 等
+文件操作，打开，读取，写入等
+time.sleep，在前面举例中已经看到了
+smtplib，发邮件的操作
+一些网络操作，比如 tornado 的 httpclient 以及 pycurl 等
+除了以上，或许在编程实践中还会遇到其他的同步、阻塞实践。仅仅就上面几项，就是编程实践中经常会遇到的，怎么解决？
+聪明的大牛程序员帮我们做了扩展模块，专门用来实现异步/非阻塞的。
+
+在数据库方面，由于种类繁多，不能一一说明，比如 mysql，可以使用adb模块来实现 python 的异步 mysql 库；
+对于 mongodb 数据库，有一个非常优秀的模块，专门用于在 tornado 和 mongodb 上实现异步操作，它就是 motor。
+特别贴出它的 logo，我喜欢。官方网站：http://motor.readthedocs.org/en/stable/上的安装和使用方法都很详细。
+文件操作方面也没有替代模块，只能尽量控制好 IO，或者使用内存型（Redis）及文档型（MongoDB）数据库。
+time.sleep() 在 tornado 中有替代：tornado.gen.sleep() 或者 tornado.ioloop.IOLoop.instance().add_timeout，这在前面代码已经显示了。
+smtp 发送邮件，推荐改为 tornado-smtp-client。
+对于网络操作，要使用 tornado.httpclient.AsyncHTTPClient。
+其它的解决方法，只能看到问题具体说了，甚至没有很好的解决方法。
+不过，这里有一个列表，列出了足够多的库，供使用者选择：Async Client Libraries built on tornado.ioloop，
+https://github.com/tornadoweb/tornado/wiki/Links
+同时这个页面里面还有很多别的链接，都是很好的资源，建议读者多看看。
+既然对于 mongodb 有专门的 motor 库来实现异步，前面对于 tornado 的异步，不管是哪个装饰器，都感觉麻烦，有没有专门的库来实现这种异步呢？
+这不是异想天开，还真有。也应该有，因为这才体现python的特点。比如greenlet-tornado，就是一个不错的库。
+http://emptysqua.re/blog/refactoring-tornado-coroutines/
+
